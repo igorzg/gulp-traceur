@@ -10,48 +10,31 @@ module.exports = function (options) {
 
 	return through.obj(function (file, enc, cb) {
 		if (file.isNull()) {
-			cb(null, file);
+			this.push(file);
+			cb();
 			return;
 		}
 
 		if (file.isStream()) {
-			cb(new gutil.PluginError('gulp-traceur', 'Streaming not supported'));
+			this.emit('error', new gutil.PluginError('gulp-traceur', 'Streaming not supported'));
+			cb();
 			return;
 		}
-
 		var ret;
-
 		var fileOptions = objectAssign({}, options);
-		fileOptions.filename = file.relative;
-
-		if (file.sourceMap) {
-			fileOptions.sourceMaps = true;
-		}
-
 		try {
 			ret = traceur.compile(file.contents.toString(), fileOptions);
-
-			if (ret.js) {
-				file.contents = new Buffer(ret.js);
-			}
-
-			if (ret.generatedSourceMap && file.sourceMap) {
-				applySourceMap(file, ret.generatedSourceMap);
-			}
-
-			if (ret.errors.length > 0) {
-				cb(new gutil.PluginError('gulp-traceur', '\n' + ret.errors.join('\n'), {
-					fileName: file.path,
-					showStack: false
-				}));
-			} else {
-				cb(null, file);
+			if (ret) {
+				file.contents = new Buffer(ret);
+                this.push(file);
 			}
 		} catch (err) {
-			cb(new gutil.PluginError('gulp-traceur', err, {
+			this.emit('error', new gutil.PluginError('gulp-traceur', err, {
 				fileName: file.path
 			}));
 		}
+
+		cb();
 	});
 };
 
